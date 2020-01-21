@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Example 02.01 - Basic Scene</title>
+    <script type="text/javascript" src="../libs/three.js"></script>
+
+    <script type="text/javascript" src="../libs/stats.js"></script>
+    <script type="text/javascript" src="../libs/dat.gui.js"></script>
+    <style>
+        body {
+            /* set margin to 0 and overflow to hidden, to go fullscreen */
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<div id="Stats-output">
+</div>
+<!-- Div which will hold the Output -->
+<div id="WebGL-output">
+</div>
+
+<!-- Javascript code that runs our Three.js examples -->
+<script type="text/javascript">
+
+    // once everything is loaded, we run our Three.js stuff.
+    function init() {
+
+        var stats = initStats();
+
+        // create a scene, that will hold all our elements such as objects, cameras and lights.
+        // シーンの追加
+        var scene = new THREE.Scene();
+
+        // 霧の追加 0.015はnear（近く）を　100はfar（遠く）を定義してる
+        scene.fog = new THREE.Fog(0xffffff, 0.015, 100);
+         // こういう書き方もあるよ。ちょっと霧の状態は違う。scene.fog = new THREE.FogExp2(0xffffff, 0.015);
+
+        // overrideMaterial シーン内のすべてのオブジェクトがこのプロパティで設定されたものになる
+        // cubeが全部白になる。ランバーはシーンのライトに対してあまり強い光沢を発生させない
+        scene.overrideMaterial = new THREE.MeshLambertMaterial({color: 0xffffff});
+
+        // create a camera, which defines where we're looking at.
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // カメラを追加　１個め
+        scene.add(camera);
+
+        // create a render and set the size
+        var renderer = new THREE.WebGLRenderer();
+
+        renderer.setClearColor(new THREE.Color(0xEEEEEE));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+
+        // create the ground plane
+        var planeGeometry = new THREE.PlaneGeometry(60, 40, 1, 1);
+        var planeMaterial = new THREE.MeshLambertMaterial({color: 0xffffff});
+        var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.receiveShadow = true;
+
+        // rotate and position the plane
+        plane.rotation.x = -0.5 * Math.PI;
+        plane.position.x = 0;
+        plane.position.y = 0;
+        plane.position.z = 0;
+
+        // add the plane to the scene
+        // 平面（地面）を追加、2個め
+        scene.add(plane);
+
+        // position and point the camera to the center of the scene
+        camera.position.x = -30;
+        camera.position.y = 40;
+        camera.position.z = 30;
+        camera.lookAt(scene.position);
+
+        // add subtle ambient lighting
+        var ambientLight = new THREE.AmbientLight(0x0c0c0c);
+        // アンビエントライト追加　3個め
+        scene.add(ambientLight);
+
+        // add spotlight for the shadows
+        var spotLight = new THREE.SpotLight(0xffffff);
+        spotLight.position.set(-20, 30, -5);
+        spotLight.castShadow = true;
+        // スポットライト追加　4個め
+        scene.add(spotLight);
+
+        // add the output of the renderer to the html element
+        document.getElementById("WebGL-output").appendChild(renderer.domElement);
+
+        // call the render function
+        var step = 0;
+
+        var controls = new function () {
+            this.rotationSpeed = 0.02;
+            this.numberOfObjects = scene.children.length;
+
+            // 立方体の削除　最後に追加された立方体から削除される
+            this.removeCube = function () {
+                var allChildren = scene.children;
+                var lastObject = allChildren[allChildren.length - 1];
+
+                // カメラとか削除しないようにメッシュかどうか確認
+                if (lastObject instanceof THREE.Mesh) {
+                    scene.remove(lastObject);
+
+                    // 最後にGUI（コントローラー）のプロパティを更新しておく。
+                    this.numberOfObjects = scene.children.length;
+                }
+            };
+
+            // キューブを追加
+            this.addCube = function () {
+
+                //  Geometryは頂点群のこと　座標の集合と点をつないでまとめた面
+                var cubeSize = Math.ceil((Math.random() * 3));
+                var cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+                var cubeMaterial = new THREE.MeshLambertMaterial({color: Math.random() * 0xffffff});
+                var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                cube.castShadow = true;
+
+                // 立方体の名前をつける。cubeは固定。
+                cube.name = "cube-" + scene.children.length;
+
+
+                // position the cube randomly in the scene
+
+                cube.position.x = -30 + Math.round((Math.random() * planeGeometry.parameters.width));
+                cube.position.y = Math.round((Math.random() * 5));
+                cube.position.z = -20 + Math.round((Math.random() * planeGeometry.parameters.height));
+
+                // add the cube to the scene
+                // 球体追加
+                scene.add(cube);
+                // コントロールGUIでオブジェクトの数を表示
+                this.numberOfObjects = scene.children.length;
+            };
+
+            // 情報をコンソールとして出力。コントロール上のアウトプットを押すとブラウザのコンソールに情報がでる
+            this.outputObjects = function () {
+                console.log(scene.children);
+            }
+        };
+
+        var gui = new dat.GUI();
+        gui.add(controls, 'rotationSpeed', 0, 0.5);
+        gui.add(controls, 'addCube');
+        gui.add(controls, 'removeCube');
+        gui.add(controls, 'outputObjects');
+        gui.add(controls, 'numberOfObjects').listen();
+
+        render();
+
+        // シーンを描画するためのレンダーループ
+        // rendaer()は立方体の回転を更新している
+        function render() {
+            stats.update();
+
+            // rotate the cubes around its axes
+            // traverse関数はシーン内それぞれの子要素を引数として呼び出せる。再帰的
+            scene.traverse(function (obj) {
+                // ↓地面を無視するようにしている
+                if (obj instanceof THREE.Mesh && obj != plane) {
+
+                    obj.rotation.x += controls.rotationSpeed;
+                    obj.rotation.y += controls.rotationSpeed;
+                    obj.rotation.z += controls.rotationSpeed;
+                }
+            });
+
+            // render using requestAnimationFrame
+            requestAnimationFrame(render);
+            renderer.render(scene, camera);
+        }
+
+        function initStats() {
+
+            var stats = new Stats();
+
+            stats.setMode(0); // 0: fps, 1: ms
+
+            // Align top-left
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+
+            document.getElementById("Stats-output").appendChild(stats.domElement);
+
+            return stats;
+        }
+    }
+    window.onload = init
+
+
+</script>
+</body>
+</html>
