@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>Example 01.02 - First Scene</title>
+    <script type="text/javascript" src="../libs/three.js"></script>
+     <!-- 統計情報の表示 -->
+    <script type="text/javascript" src="../libs/stats.js"></script>
+     <!-- アニメーションのスライドバー -->
+    <script type="text/javascript" src="../libs/dat.gui.js"></script>
+
+    <style>
+        body {
+            /* set margin to 0 and overflow to hidden, to go fullscreen */
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Div which will hold the Output -->
+<div id="Stats-output"></div>
+<div id="WebGL-output">
+</div>
+
+<!-- Javascript code that runs our Three.js examples -->
+<script type="text/javascript">
+
+    // ウインドウサイズ変更できるように、別の関数からもアクセスできるように
+    // カメラとレンダーとシーンの変数定義はinit()の前にもってくる
+
+    var camera;
+    var scene;
+    var renderer;
+
+    // once everything is loaded, we run our Three.js stuff.
+    function init() {
+
+        // statsを有効にする
+        var stats = initStats();
+        // create a scene, that will hold all our elements such as objects, cameras and lights.
+        // シーンの設定これがないと何も描画できない。表示したい全ての物体と光源のコンテナオブジェクト
+        // ウインドウリサイズの為に上で変数宣言してるので、varはつけない
+        scene = new THREE.Scene();
+
+        // create a camera, which defines where we're looking at.
+        // カメラ　ウインドウリサイズの為に上で変数宣言してるので、varはつけない
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+        // create a render and set the size
+        // レンダラー　WebGL以外にもcanvasとかSVG、CSSもレンダラーがある
+        // ウインドウリサイズの為に上で変数宣言してるので、varはつけない
+        renderer = new THREE.WebGLRenderer();
+        // ↓ここで背景色をほぼ真っ白にしてる。描画するシーンのサイズも設定
+        //　ここまでが基本となる空のシーンとレンダラ、カメラ
+        renderer.setClearColor(new THREE.Color(0xEEEEEE));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // 影の追加。影は描画が重いからデフォルトで無効になっている。ここで宣言してから
+        // オブジェクトにも個別に影を追加する
+        renderer.shadowMap.enabled = true;
+
+
+        // show axes in the screen
+        // 座標軸をシーンに追加
+        var axes = new THREE.AxisHelper(20);
+        scene.add(axes);
+
+        // create the ground plane
+        //　↓どのような平面であるか。幅60、高さ20　平面の追加
+        var planeGeometry = new THREE.PlaneGeometry(60, 20);
+        // ↓カラー指定したマテリアルオブジェクト（マテリアルの見た目）
+        // planeという名前のメッシュオブジェクトの作成
+        // オブジェクトを描画をMeshLamberMaterialに変更
+        // MeshLamberとMeshPhong、MeshStandardがThree.jsでは光源を計算に含めてるマテリアル
+        var planeMaterial = new THREE.MeshLambertMaterial({color: 0xcccccc});
+        var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        // 平面に影を追加する
+        plane.receiveShadow = true;
+
+        // rotate and position the plane
+        // planeの位置設定。x軸周り９０度回転してから、場所決める。
+        plane.rotation.x = -0.5 * Math.PI;
+        plane.position.x = 15;
+        plane.position.y = 0;
+        plane.position.z = 0;
+
+        // add the plane to the scene
+        // 平面をシーンに追加
+        scene.add(plane);
+
+        // create a cube
+        // ワイヤーフレームがtrueなのでソリッドオブジェではない。
+        var cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
+        var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
+        var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        // cubeに影を追加
+        cube.castShadow = true;
+
+        // position the cube
+        cube.position.x = -4;
+        cube.position.y = 3;
+        cube.position.z = 0;
+
+        // add the cube to the scene
+        // キューブをシーンに追加
+        scene.add(cube);
+
+        // create a sphere
+        var sphereGeometry = new THREE.SphereGeometry(4, 20, 20);
+        var sphereMaterial = new THREE.MeshLambertMaterial({color: 0x7777ff});
+        var sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        // 円に影を追加
+        sphere.castShadow = true;
+
+        // position the sphere
+        sphere.position.x = 20;
+        sphere.position.y = 4;
+        sphere.position.z = 2;
+
+        // add the sphere to the scene
+        //　円をシーンに追加
+        scene.add(sphere);
+
+        // position and point the camera to the center of the scene
+        // カメラの位置
+        camera.position.x = -30;
+        camera.position.y = 40;
+        camera.position.z = 30;
+        // ↓カメラが物体を向くようにlookAt関数を入れてる。シーンの中心を向くようにしてる
+        camera.lookAt(scene.position);
+
+        // スポットライトの追加
+        var spotLight = new  THREE.SpotLight(0xffffff);
+        spotLight.position.set(-20, 30, -5);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
+
+        // add the output of the renderer to the html element
+        // ↓appendChildでレンダラの出力を上のdivに入れる
+        document.getElementById("WebGL-output").appendChild(renderer.domElement);
+
+        // ボールのバウンド用
+        var step = 0;
+
+        // アニメーションスライダー
+        var controls = new function () {
+            this.rotationSpeed = 0.02;
+            this.bouncingSpeed = 0.03;
+        };
+
+        // datGUIオブジェクトに渡す
+        var gui = new dat.GUI();
+        gui.add(controls, 'rotationSpeed', 0, 0.5);
+        gui.add(controls, 'bouncingSpeed', 0, 0.5);
+
+        renderScene();
+
+
+        // アニメーションのファンクション追加
+        function renderScene() {
+
+            // 新しいレンダリングサイクルに入ったことをstatsオブジェクトに通知
+            stats.update();
+
+            // アニメーションをさせる cubeの回転
+            cube.rotation.x += controls.rotationSpeed;
+            cube.rotation.y += controls.rotationSpeed;
+            cube.rotation.z += controls.rotationSpeed;
+
+            // アニメーションさせる　ボールを弾ませる
+            step += controls.bouncingSpeed;
+            sphere.position.x = 20 + ( 10 * (Math.cos(step)));
+            sphere.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
+
+            requestAnimationFrame(renderScene);
+            renderer.render(scene, camera);
+        }
+
+        // 統計情報用function
+        function initStats() {
+            var stats = new Stats();
+
+            // 0:fps,0にすると秒間のフレームレート測定。 1:ms　１にすると時間を測定
+            stats.setMode(0);
+
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+
+            document.getElementById("Stats-output").appendChild(stats.domElement);
+
+            return stats;
+        }
+    }
+
+    // ウインドウリサイズ用function
+    function onResize() {
+        // カメラの画面の縦横アスペクト比を更新
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        // レンダーのサイズ変更
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    window.onload = init;
+
+    // ブラウザサイズが変更されたら出力を自動的にリサイズする
+    window.addEventListener('resize', onResize, false);
+
+</script>
+</body>
+</html>
