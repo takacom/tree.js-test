@@ -3,7 +3,9 @@
 <h1>{{title}}</h1>
 <p>{{$store.state.message}}</p>
 <hr>
-<div class="link" v-on:click="doAction"><a>clicked: {{ $store.state.counter }}</a></div>
+<div class="link" @click="$store.commit('count')" @click.ctrl="$store.commit('reset')">
+  <a>clicked: {{ $store.state.counter }}</a>
+</div>
 </section>
 </template>
 
